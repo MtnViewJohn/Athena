@@ -159,8 +159,6 @@ initModel initUrl =
     qd = case url.query of
       Nothing -> Dict.empty
       Just q -> parseParams q
-    _ = Debug.log "url" url
-    _ = Debug.log "params" qd
   in
     ( { length                = initField "30" (getQueryPart "length" qd) positive
       , count                 = initField "1"  (getQueryPart "count" qd) positive
@@ -294,9 +292,9 @@ calculateWarp model =
     lengthWarpYards = floor (lengthWarp / 36.0)
     lengthWarpInches = floor lengthWarp - (36 * lengthWarpYards)
     lengthWarpYarn = lengthWarp * (toFloat endsFloat)
-    lengthWarpYarnYards = Debug.log "warp: " <| floor ((lengthWarpYarn / 36.0) + 0.9)
+    lengthWarpYarnYards = floor ((lengthWarpYarn / 36.0) + 0.9)
     lengthWeftYarn = actualReedWidth * model.ppi.value * lengthWeaveT * model.count.value
-    lengthWeftYarnYards = Debug.log "weft: " <| floor ((lengthWeftYarn / 36.0) + 0.9)
+    lengthWeftYarnYards = floor ((lengthWeftYarn / 36.0) + 0.9)
   in
     Calculation shrinkW shrunkWidth takeupW reedWidth ends endsAdjusted endsFloat
                 actualReedWidth shrinkL lengthWeave lengthWeaveT takeupL fringe lengthItem
