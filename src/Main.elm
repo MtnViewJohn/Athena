@@ -260,11 +260,12 @@ type alias Calculation =
   , lengthItem : Float
   , lengthItems : Float
   , lengthWarp : Float
-  , lengthWarpYards : Float
+  , lengthWarpYards : Int
+  , lengthWarpInches : Int
   , lengthWarpYarn : Float
-  , lengthWarpYarnYards : Float
+  , lengthWarpYarnYards : Int
   , lengthWeftYarn : Float
-  , lengthWeftYarnYards : Float
+  , lengthWeftYarnYards : Int
   }
 
 roundf : Float -> Float
@@ -290,16 +291,17 @@ calculateWarp model =
     lengthItem = lengthWeaveT + fringe
     lengthItems = roundf <| lengthItem * model.count.value - fringe   -- loom waste is the outermost fringe
     lengthWarp = lengthItems + model.loomWaste.value
-    lengthWarpYards = lengthWarp / 36.0
+    lengthWarpYards = floor (lengthWarp / 36.0)
+    lengthWarpInches = floor lengthWarp - (36 * lengthWarpYards)
     lengthWarpYarn = lengthWarp * (toFloat endsFloat)
-    lengthWarpYarnYards = lengthWarpYarn / 36.0
+    lengthWarpYarnYards = Debug.log "warp: " <| floor ((lengthWarpYarn / 36.0) + 0.9)
     lengthWeftYarn = actualReedWidth * model.ppi.value * lengthWeaveT * model.count.value
-    lengthWeftYarnYards = lengthWeftYarn / 36.0
+    lengthWeftYarnYards = Debug.log "weft: " <| floor ((lengthWeftYarn / 36.0) + 0.9)
   in
     Calculation shrinkW shrunkWidth takeupW reedWidth ends endsAdjusted endsFloat
                 actualReedWidth shrinkL lengthWeave lengthWeaveT takeupL fringe lengthItem
-                lengthItems lengthWarp lengthWarpYards lengthWarpYarn
-                lengthWeftYarnYards lengthWeftYarn lengthWeftYarnYards
+                lengthItems lengthWarp lengthWarpYards lengthWarpInches lengthWarpYarn
+                lengthWarpYarnYards lengthWeftYarn lengthWeftYarnYards
 
 makeMarkup : Model -> Calculation -> String
 makeMarkup model calc = 
@@ -352,14 +354,13 @@ makeMarkup model calc =
   ++ "+ " ++ (format usLocale model.loomWaste.value) ++ "\"|\n"
   ++ "|= Total warp length|"
   ++ "= " ++ (format usLocale calc.lengthWarp) ++ "\"|\n"
-  ++ "|  |= " ++ (format usLocale calc.lengthWarpYards) ++ " yards|\n\n"
+  ++ "|  |= " ++ (String.fromInt calc.lengthWarpYards) ++ " yards " ++ (String.fromInt calc.lengthWarpInches) ++ "\"|\n\n"
   ++ "|Yarn|Amount|\n|:---|---:|\n|    Total warp ends|"
   ++ "   " ++ (String.fromInt calc.endsFloat) ++ " ends|\n"
   ++ "|× Total warp length|"
   ++ "× " ++ (format usLocale calc.lengthWarp) ++ "\"|\n"
   ++ "|= Total warp yarn required|"
-  ++ "= " ++ (format usLocale calc.lengthWarpYarn) ++ "\"|\n"
-  ++ "|  |= " ++ (format usLocale (calc.lengthWarpYarn/36.0)) ++ " yards|\n"
+  ++ "= " ++ (String.fromInt calc.lengthWarpYarnYards) ++ " yards|\n"
   ++ "|    Actual width at reed|"
   ++ "   " ++ (format usLocale calc.actualReedWidth) ++ "\"|\n"
   ++ "|× Picks per inch|"
@@ -369,8 +370,7 @@ makeMarkup model calc =
   ++ "|× Item count|"
   ++ "× " ++ (format usLocale model.count.value) ++ "|\n"
   ++ "|= Total weft yarn required|"
-  ++ "= " ++ (format usLocale calc.lengthWeftYarn) ++ "\"|\n"
-  ++ "|  |= " ++ (format usLocale calc.lengthWeftYarnYards) ++ " yards|\n"
+  ++ "= " ++ (String.fromInt calc.lengthWeftYarnYards) ++ " yards|\n"
 
 
 makeQuery : Model -> Url.Url
