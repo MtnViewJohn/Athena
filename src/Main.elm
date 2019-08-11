@@ -286,9 +286,15 @@ calculateWarp model =
     takeupL = lengthWeave * (model.lengthTakeup.value/100.0)
     lengthWeaveT = roundf <| model.length.value + shrinkL + takeupL
     fringe = 2 * model.fringeLength.value
+    frontFringe =
+      if model.samplingLength.value <= 0 then
+        Basics.max 0 model.fringeLength.value - 6    -- steal up to 6" fring from waste, unless sampling
+      else
+        model.fringeLength.value
+    backFringe = Basics.max 0 model.fringeLength.value - 6
     lengthItem = lengthWeaveT + fringe
-    lengthItems = roundf <| lengthItem * model.count.value - fringe   -- loom waste is the outermost fringe
-    lengthWarp = lengthItems + model.loomWaste.value
+    lengthItems = roundf <| lengthItem * model.count.value - fringe + frontFringe + backFringe  -- loom waste is the outermost fringe
+    lengthWarp = lengthItems + model.loomWaste.value + model.samplingLength.value
     lengthWarpYards = floor (lengthWarp / 36.0)
     lengthWarpInches = floor lengthWarp - (36 * lengthWarpYards)
     lengthWarpYarn = lengthWarp * (toFloat endsFloat)
