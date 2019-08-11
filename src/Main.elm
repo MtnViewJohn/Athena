@@ -293,7 +293,8 @@ calculateWarp model =
     lengthWarpInches = floor lengthWarp - (36 * lengthWarpYards)
     lengthWarpYarn = lengthWarp * (toFloat endsFloat)
     lengthWarpYarnYards = floor ((lengthWarpYarn / 36.0) + 0.9)
-    lengthWeftYarn = actualReedWidth * model.ppi.value * lengthWeaveT * model.count.value
+    lengthWeftYarn = actualReedWidth * model.ppi.value * 
+                    (lengthWeaveT * model.count.value + model.samplingLength.value)
     lengthWeftYarnYards = floor ((lengthWeftYarn / 36.0) + 0.9)
   in
     Calculation shrinkW shrunkWidth takeupW reedWidth ends endsAdjusted endsFloat
