@@ -33,8 +33,8 @@ td.issue { border: none; color: red; padding-left: 5px;}
 </head>
 <body>
   <main></main>
-  <script type="text/javascript" src="clipboard.min.js" ></script>
-  <script type="text/javascript" src="elm.js"></script>
+  <script type="text/javascript" src="build/clipboard.min.js.gz" ></script>
+  <script type="text/javascript" src="build/main.js.gz"></script>
   <script>
     var app = Elm.Main.init({ flags: window.location.href, node: document.querySelector('main') })
     var clipboard = new Clipboard('.copy-button')
