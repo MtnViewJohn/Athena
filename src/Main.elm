@@ -98,6 +98,7 @@ type alias Model =
   , floatingSelvedge : Bool
   , ppi : CheckedField
   , warpAdjust : CheckedField
+  , lengthAdjust : CheckedField
   , initUrl : Url.Url
   }
 
@@ -176,6 +177,7 @@ initModel initUrl =
       , floatingSelvedge      = getQueryBool "floating" qd
       , ppi                   = initField "10" (getQueryPart "ppi" qd) positive
       , warpAdjust            = initField "0"  (getQueryPart "adjust" qd) isInteger
+      , lengthAdjust          = initField "0"  (getQueryPart "warpAdjust" qd) notNegative
       , initUrl               = url
       } 
     , Cmd.none
@@ -196,6 +198,7 @@ isValid model =
   && isNothing model.warpSett.error
   && isNothing model.ppi.error
   && isNothing model.warpAdjust.error
+  && isNothing model.lengthAdjust.error
 
 
   -- UPDATE
@@ -215,6 +218,7 @@ type Msg
   | FloatingSelvedgeChange Bool
   | PPIChange String
   | WarpAdjustChange String
+  | LengthAdjustChange String
   | UnitsChange Bool
 
 
@@ -235,6 +239,7 @@ update msg model =
     FloatingSelvedgeChange f -> ({model | floatingSelvedge = f}, Cmd.none)
     PPIChange p -> ({model | ppi = updateField model.ppi p}, Cmd.none)
     WarpAdjustChange w -> ({model | warpAdjust = updateField model.warpAdjust w}, Cmd.none)
+    LengthAdjustChange l -> ({model | lengthAdjust = updateField model.lengthAdjust l}, Cmd.none)
     UnitsChange m -> ({model | metric = m}, Cmd.none)
 
 -- VIEW
@@ -301,7 +306,7 @@ calculateWarp model =
     backFringe = Basics.max 0 (model.fringeLength.value - fringeoverlap)
     lengthItem = lengthWeaveT + fringe
     lengthItems = roundf <| lengthItem * model.count.value - fringe + frontFringe + backFringe  -- loom waste is the outermost fringe
-    lengthWarp = lengthItems + model.loomWaste.value + model.samplingLength.value
+    lengthWarp = lengthItems + model.loomWaste.value + model.samplingLength.value + model.lengthAdjust.value
     lengthWarpLarge = floor (lengthWarp / smallperlarge)
     lengthWarpSmall = floor lengthWarp - (smallperlarge * lengthWarpLarge)
     lengthWarpYarn = lengthWarp * (toFloat endsFloat)
@@ -377,6 +382,11 @@ makeMarkup model calc =
         else
           ""
       )
+    , ( if model.lengthAdjust.value > 0.0 then
+          "|+ Warp length adjustment|+ " ++ (format usLocale model.lengthAdjust.value) ++ smallunit ++ "|\n"
+        else
+          ""
+      )
     , "|= Total warp length|"
     , "= " ++ (format usLocale calc.lengthWarp) ++ smallunit ++ "|\n"
     , "|  |= " ++ (String.fromInt calc.lengthWarpYards) ++ largeunit ++ " " ++ (String.fromInt calc.lengthWarpInches) ++ smallunit ++ "|\n\n"
@@ -423,6 +433,7 @@ makeQuery model =
       , UB.string "floating" (if model.floatingSelvedge then "true" else "false")
       , UB.string "ppi" model.ppi.text
       , UB.string "adjust" model.warpAdjust.text
+      , UB.string "warpAdjust" model.lengthAdjust.text
       , UB.string "metric" (if model.metric then "true" else "false")
       ]
   in
@@ -489,6 +500,7 @@ view model =
         , viewField "Loom waste length:" smallunit model.loomWaste WasteChange Real
         , viewField "Length take-up amount:" " %" model.lengthTakeup LTakeupChange Percent
         , viewField "Length shrinkage amount:" " %" model.lengthShrinkage LShrinkChange Percent
+        , viewField "Warp length adjustment:" smallunit model.lengthAdjust LengthAdjustChange Real
         , viewField "Finished width:" smallunit model.width WidthChange Real
         , viewField "Width take-up amount:" " %" model.widthTakeup WTakeupChange Percent
         , viewField "Width shrinkage amount:" " %" model.widthShrinkage WShrinkChange Percent
