@@ -310,72 +310,79 @@ calculateWarp model =
 
 makeMarkup : Model -> Calculation -> String
 makeMarkup model calc = 
-  "|Warp Ends|Calculation|\n|:---|---:|\n|    Finished width|"
-  ++ "   " ++ (format usLocale model.width.value) ++ "\"|\n"
-  ++ "|+ Shrinkage (" ++ (format usLocale model.widthShrinkage.value) ++ "%)|"
-  ++ "+ " ++ (format usLocale calc.shrinkW) ++ "\"|\n"
-  ++ "|+ Take-up (" ++ (format usLocale model.widthTakeup.value) ++ "%)|"
-  ++ "+ " ++ (format usLocale calc.takeupW) ++ "\"|\n"
-  ++ "|= Width at reed|"
-  ++ "= " ++ (format usLocale calc.reedWidth) ++ "\"|\n"
-  ++ "|× Warp Sett|"
-  ++ "× " ++ (format usLocale model.warpSett.value) ++ " epi|\n"
-  ++ "|= Warp ends|"
-  ++ "= " ++ (String.fromInt calc.ends) ++ " ends|\n"
-  ++ (if calc.endsAdjusted /= calc.ends then
+  String.concat
+  [ "|Warp Ends|Calculation|\n|:---|---:|\n|    Finished width|"
+  , "   " ++ (format usLocale model.width.value) ++ "\"|\n"
+  , "|+ Shrinkage (" ++ (format usLocale model.widthShrinkage.value) ++ "%)|"
+  , "+ " ++ (format usLocale calc.shrinkW) ++ "\"|\n"
+  , "|+ Take-up (" ++ (format usLocale model.widthTakeup.value) ++ "%)|"
+  , "+ " ++ (format usLocale calc.takeupW) ++ "\"|\n"
+  , "|= Width at reed|"
+  , "= " ++ (format usLocale calc.reedWidth) ++ "\"|\n"
+  , "|× Warp Sett|"
+  , "× " ++ (format usLocale model.warpSett.value) ++ " epi|\n"
+  , "|= Warp ends|"
+  , "= " ++ (String.fromInt calc.ends) ++ " ends|\n"
+  , (if calc.endsAdjusted /= calc.ends then
         "|+ Adjustment for pattern|" ++ (format intLocale <| toFloat (calc.endsAdjusted - calc.ends)) ++ "|\n"
       else
         ""
-     )
-  ++ (if model.floatingSelvedge then 
+    )
+  , (if model.floatingSelvedge then 
         "|+ Floating selvedge|+2|\n"
       else
         ""
-     )
-  ++ ( if calc.endsFloat /= calc.ends then
+    )
+  , ( if calc.endsFloat /= calc.ends then
          "|= Total warp ends|= " ++ (String.fromInt calc.endsFloat) ++ " ends|\n"
        else
          ""
-     )
-  ++ "\n\n|Warp Length|Calculation|\n|:---|---:|\n|    Finished length|" 
-  ++ "   " ++ (format usLocale model.length.value) ++ "\"|\n"
-  ++ "|+ Shrinkage (" ++ (format usLocale model.lengthShrinkage.value) ++ "%)|"
-  ++ "+ " ++ (format usLocale calc.shrinkL) ++ "\"|\n"
-  ++ "|+ Take-up (" ++ (format usLocale model.lengthTakeup.value) ++ "%)|"
-  ++ "+ " ++ (format usLocale calc.takeupL) ++ "\"|\n"
-  ++ "|= Length to weave (relaxed)|" 
-  ++ "= " ++ (format usLocale calc.lengthWeave) ++ "\"|\n"
-  ++ "|= Length to weave (under tension)|" 
-  ++ "= " ++ (format usLocale calc.lengthWeaveT) ++ "\"|\n"
-  ++ "|+ Fringe|"
-  ++ "+ " ++ (format usLocale calc.fringe) ++ "\"|\n"
-  ++ "|= Length of item|"
-  ++ "= " ++ (format usLocale calc.lengthItem) ++ "\"|\n"
-  ++ "|× Item count|"
-  ++ "× " ++ (format usLocale model.count.value) ++ "|\n"
-  ++ "|= Length of weaving|"
-  ++ "= " ++ (format usLocale calc.lengthItems) ++ "\"|\n"
-  ++ "|+ Loom waste|"
-  ++ "+ " ++ (format usLocale model.loomWaste.value) ++ "\"|\n"
-  ++ "|= Total warp length|"
-  ++ "= " ++ (format usLocale calc.lengthWarp) ++ "\"|\n"
-  ++ "|  |= " ++ (String.fromInt calc.lengthWarpYards) ++ " yards " ++ (String.fromInt calc.lengthWarpInches) ++ "\"|\n\n"
-  ++ "|Yarn|Amount|\n|:---|---:|\n|    Total warp ends|"
-  ++ "   " ++ (String.fromInt calc.endsFloat) ++ " ends|\n"
-  ++ "|× Total warp length|"
-  ++ "× " ++ (format usLocale calc.lengthWarp) ++ "\"|\n"
-  ++ "|= Total warp yarn required|"
-  ++ "= " ++ (String.fromInt calc.lengthWarpYarnYards) ++ " yards|\n"
-  ++ "|    Actual width at reed|"
-  ++ "   " ++ (format usLocale calc.actualReedWidth) ++ "\"|\n"
-  ++ "|× Picks per inch|"
-  ++ "× " ++ (format usLocale model.ppi.value) ++ " ppi|\n"
-  ++ "|× Length to weave|"
-  ++ "× " ++ (format usLocale (calc.lengthWeave + calc.takeupL)) ++ "\"|\n"
-  ++ "|× Item count|"
-  ++ "× " ++ (format usLocale model.count.value) ++ "|\n"
-  ++ "|= Total weft yarn required|"
-  ++ "= " ++ (String.fromInt calc.lengthWeftYarnYards) ++ " yards|\n"
+    )
+  , "\n\n|Warp Length|Calculation|\n|:---|---:|\n|    Finished length|" 
+  , "   " ++ (format usLocale model.length.value) ++ "\"|\n"
+  , "|+ Shrinkage (" ++ (format usLocale model.lengthShrinkage.value) ++ "%)|"
+  , "+ " ++ (format usLocale calc.shrinkL) ++ "\"|\n"
+  , "|+ Take-up (" ++ (format usLocale model.lengthTakeup.value) ++ "%)|"
+  , "+ " ++ (format usLocale calc.takeupL) ++ "\"|\n"
+  , "|= Length to weave (relaxed)|" 
+  , "= " ++ (format usLocale calc.lengthWeave) ++ "\"|\n"
+  , "|= Length to weave (under tension)|" 
+  , "= " ++ (format usLocale calc.lengthWeaveT) ++ "\"|\n"
+  , "|+ Fringe|"
+  , "+ " ++ (format usLocale calc.fringe) ++ "\"|\n"
+  , "|= Length of item|"
+  , "= " ++ (format usLocale calc.lengthItem) ++ "\"|\n"
+  , "|× Item count|"
+  , "× " ++ (format usLocale model.count.value) ++ "|\n"
+  , "|= Length of weaving|"
+  , "= " ++ (format usLocale calc.lengthItems) ++ "\"|\n"
+  , "|+ Loom waste|"
+  , "+ " ++ (format usLocale model.loomWaste.value) ++ "\"|\n"
+  , ( if model.samplingLength.value > 0.0 then
+        "|+ Sampling|+ " ++ (format usLocale model.samplingLength.value) ++ "\"|\n"
+      else
+        ""
+    )
+  , "|= Total warp length|"
+  , "= " ++ (format usLocale calc.lengthWarp) ++ "\"|\n"
+  , "|  |= " ++ (String.fromInt calc.lengthWarpYards) ++ " yards " ++ (String.fromInt calc.lengthWarpInches) ++ "\"|\n\n"
+  , "|Yarn|Amount|\n|:---|---:|\n|    Total warp ends|"
+  , "   " ++ (String.fromInt calc.endsFloat) ++ " ends|\n"
+  , "|× Total warp length|"
+  , "× " ++ (format usLocale calc.lengthWarp) ++ "\"|\n"
+  , "|= Total warp yarn required|"
+  , "= " ++ (String.fromInt calc.lengthWarpYarnYards) ++ " yards|\n"
+  , "|    Actual width at reed|"
+  , "   " ++ (format usLocale calc.actualReedWidth) ++ "\"|\n"
+  , "|× Picks per inch|"
+  , "× " ++ (format usLocale model.ppi.value) ++ " ppi|\n"
+  , "|× Length to weave|"
+  , "× " ++ (format usLocale (calc.lengthWeave + calc.takeupL)) ++ "\"|\n"
+  , "|× Item count|"
+  , "× " ++ (format usLocale model.count.value) ++ "|\n"
+  , "|= Total weft yarn required|"
+  , "= " ++ (String.fromInt calc.lengthWeftYarnYards) ++ " yards|\n"
+  ]
 
 
 makeQuery : Model -> Url.Url
