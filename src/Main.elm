@@ -83,7 +83,8 @@ isInteger s =
 
 
 type alias Model =
-  { length : CheckedField
+  { metric : Bool
+  , length : CheckedField
   , count : CheckedField
   , fringeLength : CheckedField
   , samplingLength : CheckedField
@@ -160,7 +161,8 @@ initModel initUrl =
       Nothing -> Dict.empty
       Just q -> parseParams q
   in
-    ( { length                = initField "30" (getQueryPart "length" qd) positive
+    ( { metric                = getQueryBool "metric" qd
+      , length                = initField "30" (getQueryPart "length" qd) positive
       , count                 = initField "1"  (getQueryPart "count" qd) positive
       , fringeLength          = initField "0"  (getQueryPart "fringe" qd) notNegative
       , samplingLength        = initField "0"  (getQueryPart "sample" qd) notNegative
@@ -213,6 +215,7 @@ type Msg
   | FloatingSelvedgeChange Bool
   | PPIChange String
   | WarpAdjustChange String
+  | UnitsChange Bool
 
 
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -232,6 +235,7 @@ update msg model =
     FloatingSelvedgeChange f -> ({model | floatingSelvedge = f}, Cmd.none)
     PPIChange p -> ({model | ppi = updateField model.ppi p}, Cmd.none)
     WarpAdjustChange w -> ({model | warpAdjust = updateField model.warpAdjust w}, Cmd.none)
+    UnitsChange m -> ({model | metric = m}, Cmd.none)
 
 -- VIEW
 
@@ -263,6 +267,7 @@ type alias Calculation =
   , lengthWarpYarn : Float
   , lengthWarpYarnYards : Int
   , lengthWeftYarn : Float
+  , lengthWeftSample : Float
   , lengthWeftYarnYards : Int
   }
 
@@ -273,6 +278,8 @@ roundf f =
 calculateWarp : Model -> Calculation
 calculateWarp model =
   let
+    smallperlarge = if model.metric then 100 else 36
+    fringeoverlap = if model.metric then 15.0 else 6.0
     shrinkW = model.width.value * (model.widthShrinkage.value/100.0)
     shrunkWidth = model.width.value + shrinkW
     takeupW = shrunkWidth * (model.widthTakeup.value/100.0)
@@ -288,101 +295,113 @@ calculateWarp model =
     fringe = 2 * model.fringeLength.value
     frontFringe =
       if model.samplingLength.value <= 0 then
-        Basics.max 0 model.fringeLength.value - 6    -- steal up to 6" fring from waste, unless sampling
+        Basics.max 0 (model.fringeLength.value - fringeoverlap)    -- steal up to 6" fring from waste, unless sampling
       else
         model.fringeLength.value
-    backFringe = Basics.max 0 model.fringeLength.value - 6
+    backFringe = Basics.max 0 (model.fringeLength.value - fringeoverlap)
     lengthItem = lengthWeaveT + fringe
     lengthItems = roundf <| lengthItem * model.count.value - fringe + frontFringe + backFringe  -- loom waste is the outermost fringe
     lengthWarp = lengthItems + model.loomWaste.value + model.samplingLength.value
-    lengthWarpYards = floor (lengthWarp / 36.0)
-    lengthWarpInches = floor lengthWarp - (36 * lengthWarpYards)
+    lengthWarpLarge = floor (lengthWarp / smallperlarge)
+    lengthWarpSmall = floor lengthWarp - (smallperlarge * lengthWarpLarge)
     lengthWarpYarn = lengthWarp * (toFloat endsFloat)
-    lengthWarpYarnYards = floor ((lengthWarpYarn / 36.0) + 0.9)
+    lengthWarpYarnLarge = floor ((lengthWarpYarn / smallperlarge) + 0.9)
     lengthWeftYarn = actualReedWidth * model.ppi.value * 
                     (lengthWeaveT * model.count.value + model.samplingLength.value)
-    lengthWeftYarnYards = floor ((lengthWeftYarn / 36.0) + 0.9)
+    lengthWeftSample = actualReedWidth * model.ppi.value * model.samplingLength.value
+    lengthWeftYarnLarge = floor ((lengthWeftYarn / smallperlarge) + 0.9)
   in
     Calculation shrinkW shrunkWidth takeupW reedWidth ends endsAdjusted endsFloat
                 actualReedWidth shrinkL lengthWeave lengthWeaveT takeupL fringe lengthItem
-                lengthItems lengthWarp lengthWarpYards lengthWarpInches lengthWarpYarn
-                lengthWarpYarnYards lengthWeftYarn lengthWeftYarnYards
+                lengthItems lengthWarp lengthWarpLarge lengthWarpSmall lengthWarpYarn
+                lengthWarpYarnLarge lengthWeftYarn lengthWeftSample lengthWeftYarnLarge
 
 makeMarkup : Model -> Calculation -> String
 makeMarkup model calc = 
-  String.concat
-  [ "|Warp Ends|Calculation|\n|:---|---:|\n|    Finished width|"
-  , "   " ++ (format usLocale model.width.value) ++ "\"|\n"
-  , "|+ Shrinkage (" ++ (format usLocale model.widthShrinkage.value) ++ "%)|"
-  , "+ " ++ (format usLocale calc.shrinkW) ++ "\"|\n"
-  , "|+ Take-up (" ++ (format usLocale model.widthTakeup.value) ++ "%)|"
-  , "+ " ++ (format usLocale calc.takeupW) ++ "\"|\n"
-  , "|= Width at reed|"
-  , "= " ++ (format usLocale calc.reedWidth) ++ "\"|\n"
-  , "|× Warp Sett|"
-  , "× " ++ (format usLocale model.warpSett.value) ++ " epi|\n"
-  , "|= Warp ends|"
-  , "= " ++ (String.fromInt calc.ends) ++ " ends|\n"
-  , (if calc.endsAdjusted /= calc.ends then
-        "|+ Adjustment for pattern|" ++ (format intLocale <| toFloat (calc.endsAdjusted - calc.ends)) ++ "|\n"
-      else
-        ""
-    )
-  , (if model.floatingSelvedge then 
-        "|+ Floating selvedge|+2|\n"
-      else
-        ""
-    )
-  , ( if calc.endsFloat /= calc.ends then
-         "|= Total warp ends|= " ++ (String.fromInt calc.endsFloat) ++ " ends|\n"
-       else
-         ""
-    )
-  , "\n\n|Warp Length|Calculation|\n|:---|---:|\n|    Finished length|" 
-  , "   " ++ (format usLocale model.length.value) ++ "\"|\n"
-  , "|+ Shrinkage (" ++ (format usLocale model.lengthShrinkage.value) ++ "%)|"
-  , "+ " ++ (format usLocale calc.shrinkL) ++ "\"|\n"
-  , "|+ Take-up (" ++ (format usLocale model.lengthTakeup.value) ++ "%)|"
-  , "+ " ++ (format usLocale calc.takeupL) ++ "\"|\n"
-  , "|= Length to weave (relaxed)|" 
-  , "= " ++ (format usLocale calc.lengthWeave) ++ "\"|\n"
-  , "|= Length to weave (under tension)|" 
-  , "= " ++ (format usLocale calc.lengthWeaveT) ++ "\"|\n"
-  , "|+ Fringe|"
-  , "+ " ++ (format usLocale calc.fringe) ++ "\"|\n"
-  , "|= Length of item|"
-  , "= " ++ (format usLocale calc.lengthItem) ++ "\"|\n"
-  , "|× Item count|"
-  , "× " ++ (format usLocale model.count.value) ++ "|\n"
-  , "|= Length of weaving|"
-  , "= " ++ (format usLocale calc.lengthItems) ++ "\"|\n"
-  , "|+ Loom waste|"
-  , "+ " ++ (format usLocale model.loomWaste.value) ++ "\"|\n"
-  , ( if model.samplingLength.value > 0.0 then
-        "|+ Sampling|+ " ++ (format usLocale model.samplingLength.value) ++ "\"|\n"
-      else
-        ""
-    )
-  , "|= Total warp length|"
-  , "= " ++ (format usLocale calc.lengthWarp) ++ "\"|\n"
-  , "|  |= " ++ (String.fromInt calc.lengthWarpYards) ++ " yards " ++ (String.fromInt calc.lengthWarpInches) ++ "\"|\n\n"
-  , "|Yarn|Amount|\n|:---|---:|\n|    Total warp ends|"
-  , "   " ++ (String.fromInt calc.endsFloat) ++ " ends|\n"
-  , "|× Total warp length|"
-  , "× " ++ (format usLocale calc.lengthWarp) ++ "\"|\n"
-  , "|= Total warp yarn required|"
-  , "= " ++ (String.fromInt calc.lengthWarpYarnYards) ++ " yards|\n"
-  , "|    Actual width at reed|"
-  , "   " ++ (format usLocale calc.actualReedWidth) ++ "\"|\n"
-  , "|× Picks per inch|"
-  , "× " ++ (format usLocale model.ppi.value) ++ " ppi|\n"
-  , "|× Length to weave|"
-  , "× " ++ (format usLocale (calc.lengthWeave + calc.takeupL)) ++ "\"|\n"
-  , "|× Item count|"
-  , "× " ++ (format usLocale model.count.value) ++ "|\n"
-  , "|= Total weft yarn required|"
-  , "= " ++ (String.fromInt calc.lengthWeftYarnYards) ++ " yards|\n"
-  ]
+  let
+    smallunit = if model.metric then " cm" else "\""
+    largeunit = if model.metric then " m" else " yards"
+    endsunit = if model.metric then " epcm" else " epi" 
+    picksunit = if model.metric then " ppcm" else " ppi"
+  in
+    String.concat
+    [ "|Warp Ends|Calculation|\n|:---|---:|\n|    Finished width|"
+    , "   " ++ (format usLocale model.width.value) ++ smallunit ++ "|\n"
+    , "|+ Shrinkage (" ++ (format usLocale model.widthShrinkage.value) ++ "%)|"
+    , "+ " ++ (format usLocale calc.shrinkW) ++ smallunit ++ "|\n"
+    , "|+ Take-up (" ++ (format usLocale model.widthTakeup.value) ++ "%)|"
+    , "+ " ++ (format usLocale calc.takeupW) ++ smallunit ++ "|\n"
+    , "|= Width at reed|"
+    , "= " ++ (format usLocale calc.reedWidth) ++ smallunit ++ "|\n"
+    , "|× Warp Sett|"
+    , "× " ++ (format usLocale model.warpSett.value) ++ endsunit ++ "|\n"
+    , "|= Warp ends|"
+    , "= " ++ (String.fromInt calc.ends) ++ " ends|\n"
+    , (if calc.endsAdjusted /= calc.ends then
+          "|+ Adjustment for pattern|" ++ (format intLocale <| toFloat (calc.endsAdjusted - calc.ends)) ++ "|\n"
+        else
+          ""
+      )
+    , (if model.floatingSelvedge then 
+          "|+ Floating selvedge|+2|\n"
+        else
+          ""
+      )
+    , ( if calc.endsFloat /= calc.ends then
+           "|= Total warp ends|= " ++ (String.fromInt calc.endsFloat) ++ " ends|\n"
+         else
+           ""
+      )
+    , "\n\n|Warp Length|Calculation|\n|:---|---:|\n|    Finished length|" 
+    , "   " ++ (format usLocale model.length.value) ++ smallunit ++ "|\n"
+    , "|+ Shrinkage (" ++ (format usLocale model.lengthShrinkage.value) ++ "%)|"
+    , "+ " ++ (format usLocale calc.shrinkL) ++ smallunit ++ "|\n"
+    , "|+ Take-up (" ++ (format usLocale model.lengthTakeup.value) ++ "%)|"
+    , "+ " ++ (format usLocale calc.takeupL) ++ smallunit ++ "|\n"
+    , "|= Length to weave (relaxed)|" 
+    , "= " ++ (format usLocale calc.lengthWeave) ++ smallunit ++ "|\n"
+    , "|= Length to weave (under tension)|" 
+    , "= " ++ (format usLocale calc.lengthWeaveT) ++ smallunit ++ "|\n"
+    , "|+ Fringe|"
+    , "+ " ++ (format usLocale calc.fringe) ++ smallunit ++ "|\n"
+    , "|= Length of item|"
+    , "= " ++ (format usLocale calc.lengthItem) ++ smallunit ++ "|\n"
+    , "|× Item count|"
+    , "× " ++ (format usLocale model.count.value) ++ "|\n"
+    , "|= Length of weaving|"
+    , "= " ++ (format usLocale calc.lengthItems) ++ smallunit ++ "|\n"
+    , "|+ Loom waste|"
+    , "+ " ++ (format usLocale model.loomWaste.value) ++ smallunit ++ "|\n"
+    , ( if model.samplingLength.value > 0.0 then
+          "|+ Sampling warp|+ " ++ (format usLocale model.samplingLength.value) ++ smallunit ++ "|\n"
+        else
+          ""
+      )
+    , "|= Total warp length|"
+    , "= " ++ (format usLocale calc.lengthWarp) ++ smallunit ++ "|\n"
+    , "|  |= " ++ (String.fromInt calc.lengthWarpYards) ++ largeunit ++ " " ++ (String.fromInt calc.lengthWarpInches) ++ smallunit ++ "|\n\n"
+    , "|Yarn|Amount|\n|:---|---:|\n|    Total warp ends|"
+    , "   " ++ (String.fromInt calc.endsFloat) ++ " ends|\n"
+    , "|× Total warp length|"
+    , "× " ++ (format usLocale calc.lengthWarp) ++ smallunit ++ "|\n"
+    , "|= Total warp yarn required|"
+    , "= " ++ (String.fromInt calc.lengthWarpYarnYards) ++ largeunit ++ "|\n"
+    , "|    Actual width at reed|"
+    , "   " ++ (format usLocale calc.actualReedWidth) ++ smallunit ++ "|\n"
+    , "|× Picks per inch|"
+    , "× " ++ (format usLocale model.ppi.value) ++ picksunit ++ "|\n"
+    , "|× Length to weave|"
+    , "× " ++ (format usLocale (calc.lengthWeave + calc.takeupL)) ++ smallunit ++ "|\n"
+    , "|× Item count|"
+    , "× " ++ (format usLocale model.count.value) ++ "|\n"
+    , ( if model.samplingLength.value > 0.0 then
+          "|+ Sampling weft|+ " ++ (format usLocale calc.lengthWeftSample) ++ smallunit ++ "|\n"
+        else
+          ""
+      )
+    , "|= Total weft yarn required|"
+    , "= " ++ (String.fromInt calc.lengthWeftYarnYards) ++ largeunit ++ "|\n"
+    ]
 
 
 makeQuery : Model -> Url.Url
@@ -404,6 +423,7 @@ makeQuery model =
       , UB.string "floating" (if model.floatingSelvedge then "true" else "false")
       , UB.string "ppi" model.ppi.text
       , UB.string "adjust" model.warpAdjust.text
+      , UB.string "metric" (if model.metric then "true" else "false")
       ]
   in
     { oldUrl | query = Just query }
@@ -419,8 +439,8 @@ myOptions =
     }
 
 
-viewField : String -> CheckedField -> (String -> Msg) -> FieldType -> Html Msg
-viewField desc cf umsg fieldType =
+viewField : String -> String -> CheckedField -> (String -> Msg) -> FieldType -> Html Msg
+viewField desc unit cf umsg fieldType =
   tr []
   [ td [] [text desc]
   , td [] [ input 
@@ -428,7 +448,7 @@ viewField desc cf umsg fieldType =
             , onInput umsg
             , value cf.text
             ] []
-          , text <| if fieldType == Percent then "%" else ""
+          , text unit
           ]
   , td [class "issue"] [text <| Maybe.withDefault "" cf.error]
   ]
@@ -436,68 +456,85 @@ viewField desc cf umsg fieldType =
 
 view : Model -> Html Msg
 view model =
-  div []
-  [ h1 [] [ text "Warp Calculator" ]
-  , table []
-    [ thead []
-      [ tr []
-        [ th [style "text-align" "left"] [text "Weaving"]
-        , th [style "text-align" "right"] [text "Parameters"]
+  let
+    smallunit = if model.metric then " cm" else " \""
+    endsunit = if model.metric then " epcm" else " epi" 
+    picksunit = if model.metric then " ppcm" else " ppi"
+  in
+    div []
+    [ h1 [] [ text "Warp & Weft Calculator" ]
+    , label []
+      [ text "Units: US/Imperial "
+      , input 
+        [ class "toggle-switch"
+        , type_ "checkbox"
+        , checked model.metric
+        , onCheck UnitsChange
         ]
+        []
+      , text " Metric"
       ]
-    , tbody []
-      [ viewField "Number of items:" model.count CountChange Integer
-      , viewField "Finished length:" model.length LengthChange Real
-      , viewField "Fringe length:" model.fringeLength FringeChange Real
-      , viewField "Sampling length:" model.samplingLength SamplingChange Real
-      , viewField "Loom waste length:" model.loomWaste WasteChange Real
-      , viewField "Length take-up amount:" model.lengthTakeup LTakeupChange Percent
-      , viewField "Length shrinkage amount:" model.lengthShrinkage LShrinkChange Percent
-      , viewField "Finished width:" model.width WidthChange Real
-      , viewField "Width take-up amount:" model.widthTakeup WTakeupChange Percent
-      , viewField "Width shrinkage amount:" model.widthShrinkage WShrinkChange Percent
-      , viewField "Warp sett:" model.warpSett SettChange Real
-      , tr []
-        [ td [] [text "Floating selvedge:"]
-        , td [] 
-          [ input 
-            [ type_ "checkbox"
-            , onCheck FloatingSelvedgeChange
-            , checked model.floatingSelvedge
-            ] []
+    , table []
+      [ thead []
+        [ tr []
+          [ th [style "text-align" "left"] [text "Weaving"]
+          , th [style "text-align" "right"] [text "Parameters"]
           ]
         ]
-      , viewField "Warp count adjustment:" model.warpAdjust WarpAdjustChange Integer
-      , viewField "Picks per inch:" model.ppi PPIChange Real
+      , tbody []
+        [ viewField "Number of items:" "" model.count CountChange Integer
+        , viewField "Finished length:" smallunit model.length LengthChange Real
+        , viewField "Fringe length:" smallunit model.fringeLength FringeChange Real
+        , viewField "Sampling length:" smallunit model.samplingLength SamplingChange Real
+        , viewField "Loom waste length:" smallunit model.loomWaste WasteChange Real
+        , viewField "Length take-up amount:" " %" model.lengthTakeup LTakeupChange Percent
+        , viewField "Length shrinkage amount:" " %" model.lengthShrinkage LShrinkChange Percent
+        , viewField "Finished width:" smallunit model.width WidthChange Real
+        , viewField "Width take-up amount:" " %" model.widthTakeup WTakeupChange Percent
+        , viewField "Width shrinkage amount:" " %" model.widthShrinkage WShrinkChange Percent
+        , viewField "Warp sett:" endsunit model.warpSett SettChange Real
+        , tr []
+          [ td [] [text "Floating selvedge:"]
+          , td [] 
+            [ input 
+              [ type_ "checkbox"
+              , onCheck FloatingSelvedgeChange
+              , checked model.floatingSelvedge
+              ] []
+            ]
+          ]
+        , viewField "Warp count adjustment:" "" model.warpAdjust WarpAdjustChange Integer
+        , viewField "Picks per inch:" picksunit model.ppi PPIChange Real
+        ]
       ]
+    , hr [] []
+    , div [class "result"]
+      ( if isValid model then 
+        let
+          calc = calculateWarp model
+          md = makeMarkup model calc
+          q = Url.toString <| makeQuery model
+        in
+          [ Markdown.toHtmlWith myOptions [] md
+          , button 
+            [ class "copy-button"
+            , attribute "data-clipboard-text" md
+            ] 
+            [ img [ src "clippy.svg", width 13, class "clippy"] []
+            , text "Copy results to Clipboard"
+            ]
+          , button 
+            [ class "copy-button"
+            , attribute "data-clipboard-text" q
+            ] 
+            [ img [ src "clippy.svg", width 13, class "clippy"] []
+            , text "Copy link to Clipboard"
+            ]
+          ]
+        else
+          [ text "" ]
+      )
     ]
-  , div [class "result"]
-    ( if isValid model then 
-      let
-        calc = calculateWarp model
-        md = makeMarkup model calc
-        q = Url.toString <| makeQuery model
-      in
-        [ Markdown.toHtmlWith myOptions [] md
-        , button 
-          [ class "copy-button"
-          , attribute "data-clipboard-text" md
-          ] 
-          [ img [ src "clippy.svg", width 13, class "clippy"] []
-          , text "Copy Mark-up to Clipboard"
-          ]
-        , button 
-          [ class "copy-button"
-          , attribute "data-clipboard-text" q
-          ] 
-          [ img [ src "clippy.svg", width 13, class "clippy"] []
-          , text "Copy parameters-url to Clipboard"
-          ]
-        ]
-      else
-        [ text "" ]
-    )
-  ]
 
 
 -- SUBSCRIPTIONS
