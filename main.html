@@ -1,16 +1,13 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
-    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<!DOCTYPE html>
 
-<html xmlns="http://www.w3.org/1999/xhtml"
-  lang="en"
-  xml:lang="en">
+<html>
 
 <head>
   <title>Warp &amp; Weft Calculator</title>
   <meta http-equiv="Content-Type"
     content="text/html;
     charset=utf-8" />
-  <style>
+  <style  type="text/css">
 body { font-family: "Lucida Sans Unicode", "Lucida Grande", sans-serif;}
 table {border-collapse: collapse; margin: 10px;}
 caption {padding: 10px 0px;}
@@ -82,11 +79,14 @@ input[type=checkbox].toggle-switch:checked::after {
   <main></main>
   <script type="text/javascript" src="build/clipboard.min.js.gz" ></script>
   <script type="text/javascript" src="build/main.js.gz"></script>
-  <script>
+  <script type="text/javascript">
     var app = Elm.Main.init({ flags: window.location.href, node: document.querySelector('main') })
     var clipboard = new Clipboard('.copy-button')
     // you can use ports and stuff here
   </script>
+<p>
+  <a rel="license" href="http://creativecommons.org/licenses/by/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by/4.0/88x31.png" /></a><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 International License</a>.
+</p>
 </body>
 </html>
 
