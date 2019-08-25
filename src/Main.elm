@@ -450,10 +450,10 @@ myOptions =
     }
 
 
-viewField : String -> String -> CheckedField -> (String -> Msg) -> FieldType -> Html Msg
+viewField : Html Msg -> String -> CheckedField -> (String -> Msg) -> FieldType -> Html Msg
 viewField desc unit cf umsg fieldType =
   tr []
-  [ td [] [text desc]
+  [ td [] [desc]
   , td [] [ input 
             [ type_ (if fieldType == Integer then "number" else "text")
             , onInput umsg
@@ -464,6 +464,19 @@ viewField desc unit cf umsg fieldType =
   , td [class "issue"] [text <| Maybe.withDefault "" cf.error]
   ]
 
+viewNote : String -> String -> Html Msg
+viewNote symbol notetext =
+  div [ class "footnote" ]
+  [ span [ class "glyph" ] [text symbol]
+  , p [] [text notetext]
+  ]
+
+viewSymbol : String -> String -> Html Msg
+viewSymbol desc symbol =
+  span []
+  [ text desc
+  , sup [] [text symbol]
+  ]
 
 view : Model -> Html Msg
 view model =
@@ -493,18 +506,18 @@ view model =
           ]
         ]
       , tbody []
-        [ viewField "Number of items:" "" model.count CountChange Integer
-        , viewField "Finished length:" smallunit model.length LengthChange Real
-        , viewField "Fringe length:" smallunit model.fringeLength FringeChange Real
-        , viewField "Sampling length:" smallunit model.samplingLength SamplingChange Real
-        , viewField "Loom waste length:" smallunit model.loomWaste WasteChange Real
-        , viewField "Length take-up amount:" " %" model.lengthTakeup LTakeupChange Percent
-        , viewField "Length shrinkage amount:" " %" model.lengthShrinkage LShrinkChange Percent
-        , viewField "Warp length adjustment:" smallunit model.lengthAdjust LengthAdjustChange Real
-        , viewField "Finished width:" smallunit model.width WidthChange Real
-        , viewField "Width take-up amount:" " %" model.widthTakeup WTakeupChange Percent
-        , viewField "Width shrinkage amount:" " %" model.widthShrinkage WShrinkChange Percent
-        , viewField "Warp sett:" endsunit model.warpSett SettChange Real
+        [ viewField (text "Number of items:") "" model.count CountChange Integer
+        , viewField (text "Finished length:") smallunit model.length LengthChange Real
+        , viewField (text "Fringe length:") smallunit model.fringeLength FringeChange Real
+        , viewField (text "Sampling length:") smallunit model.samplingLength SamplingChange Real
+        , viewField (text "Loom waste length:") smallunit model.loomWaste WasteChange Real
+        , viewField (text "Length take-up amount:") " %" model.lengthTakeup LTakeupChange Percent
+        , viewField (text "Length shrinkage amount:") " %" model.lengthShrinkage LShrinkChange Percent
+        , viewField (viewSymbol "Warp length adjustment:" "†") smallunit model.lengthAdjust LengthAdjustChange Real
+        , viewField (text "Finished width:") smallunit model.width WidthChange Real
+        , viewField (text "Width take-up amount:") " %" model.widthTakeup WTakeupChange Percent
+        , viewField (text "Width shrinkage amount:") " %" model.widthShrinkage WShrinkChange Percent
+        , viewField (text "Warp sett:") endsunit model.warpSett SettChange Real
         , tr []
           [ td [] [text "Floating selvedge:"]
           , td [] 
@@ -515,10 +528,12 @@ view model =
               ] []
             ]
           ]
-        , viewField "Warp count adjustment:" "" model.warpAdjust WarpAdjustChange Integer
-        , viewField "Picks per inch:" picksunit model.ppi PPIChange Real
+        , viewField (viewSymbol "Warp count adjustment:" "‡") "" model.warpAdjust WarpAdjustChange Integer
+        , viewField (text "Picks per inch:") picksunit model.ppi PPIChange Real
         ]
       ]
+    , viewNote "†" "If your warping frame or warping mill cannot measure the calculated warp length then add more length here to get to a measurable length."
+    , viewNote "‡" "If your design has restrictions on the number of warp ends and the calculated number of warp ends does not meet the restriction then adjust the count up or down until it does."
     , hr [] []
     , div [class "result"]
       ( if isValid model then 
