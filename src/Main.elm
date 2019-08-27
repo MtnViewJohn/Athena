@@ -328,6 +328,7 @@ makeMarkup model calc =
     largeunit = if model.metric then " m" else " yards"
     endsunit = if model.metric then " epcm" else " epi" 
     picksunit = if model.metric then " ppcm" else " ppi"
+    picktext = if model.metric then "|× Picks per cm|" else "|× Picks per inch|"
   in
     String.concat
     [ "|Warp Ends|Calculation|\n|:---|---:|\n|    Finished width|"
@@ -398,7 +399,7 @@ makeMarkup model calc =
     , "= " ++ (String.fromInt calc.lengthWarpYarnYards) ++ largeunit ++ "|\n"
     , "|    Actual width at reed|"
     , "   " ++ (format usLocale calc.actualReedWidth) ++ smallunit ++ "|\n"
-    , "|× Picks per inch|"
+    , picktext
     , "× " ++ (format usLocale model.ppi.value) ++ picksunit ++ "|\n"
     , "|× Length to weave|"
     , "× " ++ (format usLocale (calc.lengthWeave + calc.takeupL)) ++ smallunit ++ "|\n"
@@ -484,6 +485,7 @@ view model =
     smallunit = if model.metric then " cm" else " \""
     endsunit = if model.metric then " epcm" else " epi" 
     picksunit = if model.metric then " ppcm" else " ppi"
+    picktext = if model.metric then "Picks per cm:" else "Picks per inch:"
   in
     div []
     [ h1 [] [ text "Warp & Weft Calculator" ]
@@ -529,7 +531,7 @@ view model =
             ]
           ]
         , viewField (viewSymbol "Warp count adjustment:" "‡") "" model.warpAdjust WarpAdjustChange Integer
-        , viewField (text "Picks per inch:") picksunit model.ppi PPIChange Real
+        , viewField (text picktext) picksunit model.ppi PPIChange Real
         ]
       ]
     , viewNote "†" "If your warping frame or warping mill cannot measure the calculated warp length then add more length here to get to a measurable length."
