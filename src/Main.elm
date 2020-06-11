@@ -1,3 +1,5 @@
+module Main exposing (Model, Msg(..), initModel, main, subscriptions, update, view)
+
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onInput)
