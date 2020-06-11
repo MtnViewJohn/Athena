@@ -414,6 +414,8 @@ makeMarkup model calc =
       )
     , "|= Total weft yarn required|"
     , "= " ++ (String.fromInt calc.lengthWeftYarnYards) ++ largeunit ++ "|\n"
+    , "|= Total yarn required|"
+    , "= " ++ (String.fromInt (calc.lengthWeftYarnYards + calc.lengthWarpYarnYards)) ++ largeunit ++ "|\n"
     ]
 
 
