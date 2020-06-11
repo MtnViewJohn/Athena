@@ -271,6 +271,7 @@ type alias Calculation =
   , lengthWarp : Float
   , lengthWarpYards : Int
   , lengthWarpInches : Int
+  , lengthWarpAlt : Int
   , lengthWarpYarn : Float
   , lengthWarpYarnYards : Int
   , lengthWeftYarn : Float
@@ -309,6 +310,10 @@ calculateWarp model =
     lengthItem = lengthWeaveT + fringe
     lengthItems = roundf <| lengthItem * model.count.value - fringe + frontFringe + backFringe  -- loom waste is the outermost fringe
     lengthWarp = lengthItems + model.loomWaste.value + model.samplingLength.value + model.lengthAdjust.value
+    lengthWarpAlt = if model.metric then
+                      floor <| lengthWarp / 2.54 + 0.5
+                    else
+                      floor <| lengthWarp * 2.54 + 0.5
     lengthWarpLarge = floor (lengthWarp / smallperlarge)
     lengthWarpSmall = floor lengthWarp - (smallperlarge * lengthWarpLarge)
     lengthWarpYarn = lengthWarp * (toFloat endsFloat)
@@ -320,7 +325,7 @@ calculateWarp model =
   in
     Calculation shrinkW shrunkWidth takeupW reedWidth ends endsAdjusted endsFloat
                 actualReedWidth shrinkL lengthWeave lengthWeaveT takeupL fringe lengthItem
-                lengthItems lengthWarp lengthWarpLarge lengthWarpSmall lengthWarpYarn
+                lengthItems lengthWarp lengthWarpLarge lengthWarpSmall lengthWarpAlt lengthWarpYarn
                 lengthWarpYarnLarge lengthWeftYarn lengthWeftSample lengthWeftYarnLarge
 
 makeMarkup : Model -> Calculation -> String
@@ -328,6 +333,7 @@ makeMarkup model calc =
   let
     smallunit = if model.metric then " cm" else "\""
     largeunit = if model.metric then " m" else " yards"
+    altunit = if model.metric then "\"" else " cm"
     endsunit = if model.metric then " epcm" else " epi" 
     picksunit = if model.metric then " ppcm" else " ppi"
     picktext = if model.metric then "|× Picks per cm|" else "|× Picks per inch|"
@@ -392,7 +398,8 @@ makeMarkup model calc =
       )
     , "|= Total warp length|"
     , "= " ++ (format usLocale calc.lengthWarp) ++ smallunit ++ "|\n"
-    , "|  |= " ++ (String.fromInt calc.lengthWarpYards) ++ largeunit ++ " " ++ (String.fromInt calc.lengthWarpInches) ++ smallunit ++ "|\n\n"
+    , "|  |= " ++ (String.fromInt calc.lengthWarpYards) ++ largeunit ++ " " ++ (String.fromInt calc.lengthWarpInches) ++ smallunit ++ "|\n"
+    , "|  |= " ++ (String.fromInt calc.lengthWarpAlt) ++ altunit ++ "|\n\n"
     , "|Yarn|Amount|\n|:---|---:|\n|    Total warp ends|"
     , "   " ++ (String.fromInt calc.endsFloat) ++ " ends|\n"
     , "|× Total warp length|"
