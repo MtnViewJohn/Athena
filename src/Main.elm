@@ -85,7 +85,8 @@ isInteger s =
 
 
 type alias Model =
-  { metric : Bool
+  { project : String
+  , metric : Bool
   , length : CheckedField
   , count : CheckedField
   , fringeLength : CheckedField
@@ -163,8 +164,12 @@ initModel initUrl =
     qd = case url.query of
       Nothing -> Dict.empty
       Just q -> parseParams q
+    name =  Maybe.withDefault "" 
+            <| Url.percentDecode 
+            <| Maybe.withDefault "" (getQueryPart "project" qd)
   in
-    ( { metric                = getQueryBool "metric" qd
+    ( { project               = name
+      , metric                = getQueryBool "metric" qd
       , length                = initField "30" (getQueryPart "length" qd) positive
       , count                 = initField "1"  (getQueryPart "count" qd) positive
       , fringeLength          = initField "0"  (getQueryPart "fringe" qd) notNegative
@@ -222,6 +227,7 @@ type Msg
   | WarpAdjustChange String
   | LengthAdjustChange String
   | UnitsChange Bool
+  | ProjectChange String
 
 
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -243,6 +249,8 @@ update msg model =
     WarpAdjustChange w -> ({model | warpAdjust = updateField model.warpAdjust w}, Cmd.none)
     LengthAdjustChange l -> ({model | lengthAdjust = updateField model.lengthAdjust l}, Cmd.none)
     UnitsChange m -> ({model | metric = m}, Cmd.none)
+    ProjectChange n -> ({model | project = n}, Cmd.none)
+
 
 -- VIEW
 
@@ -337,9 +345,11 @@ makeMarkup model calc =
     endsunit = if model.metric then " epcm" else " epi" 
     picksunit = if model.metric then " ppcm" else " ppi"
     picktext = if model.metric then "|× Picks per cm|" else "|× Picks per inch|"
+    header = if String.isEmpty model.project then "" else "# " ++ model.project ++ "\n"
   in
     String.concat
-    [ "|Warp Ends|Calculation|\n|:---|---:|\n|    Finished width|"
+    [ header
+    , "|Warp Ends|Calculation|\n|:---|---:|\n|    Finished width|"
     , "   " ++ (format usLocale model.width.value) ++ smallunit ++ "|\n"
     , "|+ Shrinkage (" ++ (format usLocale model.widthShrinkage.value) ++ "%)|"
     , "+ " ++ (format usLocale calc.shrinkW) ++ smallunit ++ "|\n"
@@ -423,6 +433,9 @@ makeMarkup model calc =
     , "= " ++ (String.fromInt calc.lengthWeftYarnYards) ++ largeunit ++ "|\n"
     , "|= Total yarn required|"
     , "= " ++ (String.fromInt (calc.lengthWeftYarnYards + calc.lengthWarpYarnYards)) ++ largeunit ++ "|\n"
+    , "\n\nClick [Here]("
+    , Url.toString <| makeQuery model
+    , ") to edit this weave calculation."
     ]
 
 
@@ -431,7 +444,8 @@ makeQuery model =
   let
     oldUrl = model.initUrl
     query = String.dropLeft 1 <| UB.toQuery
-      [ UB.string "length" model.length.text
+      [ UB.string "project" model.project
+      , UB.string "length" model.length.text
       , UB.string "count" model.count.text
       , UB.string "fringe" model.fringeLength.text
       , UB.string "sample" model.samplingLength.text
@@ -500,6 +514,11 @@ view model =
   in
     div []
     [ h1 [] [ text "Warp & Weft Calculator" ]
+    , text "This calculation can be inserted into a Ravelry post or project "
+    , text "note. The 'Copy results to Clipboard' button below puts your "
+    , text "calculation onto the clipboard formatted for Ravelry or for any "
+    , text "other site that accepts Github-flavored markdown."
+    , hr [][]
     , label []
       [ text "Units: US/Imperial "
       , input 
@@ -519,7 +538,17 @@ view model =
           ]
         ]
       , tbody []
-        [ viewField (text "Number of items:") "" model.count CountChange Integer
+        [ tr []
+          [ td [] [text "Project name:"]
+          , td []
+            [ input 
+              [ type_ "text"
+              , onInput ProjectChange
+              , value model.project
+              ] []
+            ]
+          ]
+        , viewField (text "Number of items:") "" model.count CountChange Integer
         , viewField (text "Finished length:") smallunit model.length LengthChange Real
         , viewField (text "Fringe length:") smallunit model.fringeLength FringeChange Real
         , viewField (text "Sampling length:") smallunit model.samplingLength SamplingChange Real

@@ -12,7 +12,7 @@ elm make --optimize src/Main.elm --output build/main.js
 
 use_java=true
 
-java_exe=/Applications/Minecraft.app/Contents/runtime/jre-x64/1.8.0_74/bin/java
+java_exe=/Users/john/bin/zulu19.32.15-ca-fx-jre19.0.2-macosx_aarch64/bin/java
 closure_jar=/Users/john/bin/closure-compiler-v20180402.jar
 
 echo "Minifying..."
