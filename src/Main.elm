@@ -33,10 +33,10 @@ type alias CheckedField =
   }
 
 
-initField : String -> Maybe String -> (String -> Result String Float) -> CheckedField
+initField : CheckedField -> Maybe String -> (String -> Result String Float) -> CheckedField
 initField defs urls cvt =
   let
-    s = Maybe.withDefault defs urls
+    s = Maybe.withDefault defs.text urls
   in
     case cvt s of
       Ok f2 -> CheckedField f2 s Nothing cvt
@@ -105,6 +105,28 @@ type alias Model =
   , initUrl : Url.Url
   }
 
+globalDefaultModel = 
+  Model
+    ""                                                  -- Project name
+    False                                               -- Metric?
+    (CheckedField 30 "30" Nothing positive)             -- Finished length
+    (CheckedField  1  "1" Nothing positive)             -- Count
+    (CheckedField  0  "0" Nothing notNegative)          -- Fringe length
+    (CheckedField  0  "0" Nothing notNegative)          -- Sampling length
+    (CheckedField 24 "24" Nothing notNegative)          -- Loom waste
+    (CheckedField 10 "10" Nothing notNegative)          -- Length take-up %
+    (CheckedField 10 "10" Nothing notNegative)          -- Length shrinkage %
+    (CheckedField 10 "10" Nothing positive)             -- Finished width
+    (CheckedField 10 "10" Nothing notNegative)          -- Width take-up %
+    (CheckedField 10 "10" Nothing notNegative)          -- Width shrinkage %
+    (CheckedField 10 "10" Nothing positive)             -- Sett
+    False                                               -- Floating selvedge?
+    (CheckedField 10 "10" Nothing positive)             -- ppi
+    (CheckedField  0  "0" Nothing isInteger)            -- Warp ends adjust
+    (CheckedField  0  "0" Nothing notNegative)          -- Warp length adjust
+    (Url.Url Url.Https "" Nothing "/" Nothing Nothing)  -- URL
+
+
 type alias ParamDict = Dict String (Maybe String)
 
 {- Quick and dirty url query parser. Does not percent-decode or handle
@@ -155,8 +177,8 @@ getQueryBool field qd =
       Just s -> List.member s ["true", "1"]
 
 
-initModel : String -> (Model, Cmd Msg)
-initModel initUrl = 
+processUrl : Model -> String -> Model
+processUrl defaults initUrl = 
   let
     murl = Url.fromString initUrl
     defUrl = Url.Url Url.Https "" Nothing "/" Nothing Nothing
@@ -168,27 +190,32 @@ initModel initUrl =
             <| Url.percentDecode 
             <| Maybe.withDefault "" (getQueryPart "project" qd)
   in
-    ( { project               = name
-      , metric                = getQueryBool "metric" qd
-      , length                = initField "30" (getQueryPart "length" qd) positive
-      , count                 = initField "1"  (getQueryPart "count" qd) positive
-      , fringeLength          = initField "0"  (getQueryPart "fringe" qd) notNegative
-      , samplingLength        = initField "0"  (getQueryPart "sample" qd) notNegative
-      , loomWaste             = initField "24" (getQueryPart "waste" qd) notNegative
-      , lengthTakeup          = initField "10" (getQueryPart "ltakeup" qd) notNegative
-      , lengthShrinkage       = initField "10" (getQueryPart "lshrink" qd) notNegative
-      , width                 = initField "10" (getQueryPart "width" qd) positive
-      , widthTakeup           = initField "10" (getQueryPart "wtakeup" qd) notNegative
-      , widthShrinkage        = initField "10" (getQueryPart "wshrink" qd) notNegative
-      , warpSett              = initField "10" (getQueryPart "sett" qd) positive
-      , floatingSelvedge      = getQueryBool "floating" qd
-      , ppi                   = initField "10" (getQueryPart "ppi" qd) positive
-      , warpAdjust            = initField "0"  (getQueryPart "adjust" qd) isInteger
-      , lengthAdjust          = initField "0"  (getQueryPart "warpAdjust" qd) notNegative
-      , initUrl               = url
+    if String.isEmpty initUrl
+    then defaults
+    else
+      { project           = name
+      , metric            = getQueryBool "metric" qd
+      , length            = initField defaults.length (getQueryPart "length" qd) positive
+      , count             = initField defaults.count (getQueryPart "count" qd) positive
+      , fringeLength      = initField defaults.fringeLength (getQueryPart "fringe" qd) notNegative
+      , samplingLength    = initField defaults.samplingLength (getQueryPart "sample" qd) notNegative
+      , loomWaste         = initField defaults.loomWaste (getQueryPart "waste" qd) notNegative
+      , lengthTakeup      = initField defaults.lengthTakeup (getQueryPart "ltakeup" qd) notNegative
+      , lengthShrinkage   = initField defaults.lengthShrinkage (getQueryPart "lshrink" qd) notNegative
+      , width             = initField defaults.width (getQueryPart "width" qd) positive
+      , widthTakeup       = initField defaults.widthTakeup (getQueryPart "wtakeup" qd) notNegative
+      , widthShrinkage    = initField defaults.widthShrinkage (getQueryPart "wshrink" qd) notNegative
+      , warpSett          = initField defaults.warpSett (getQueryPart "sett" qd) positive
+      , floatingSelvedge  = getQueryBool "floating" qd
+      , ppi               = initField defaults.ppi (getQueryPart "ppi" qd) positive
+      , warpAdjust        = initField defaults.warpAdjust (getQueryPart "adjust" qd) isInteger
+      , lengthAdjust      = initField defaults.lengthAdjust (getQueryPart "warpAdjust" qd) notNegative
+      , initUrl           = url
       } 
-    , Cmd.none
-    )
+
+initModel : String -> (Model, Cmd Msg)
+initModel initUrl = 
+  (processUrl globalDefaultModel initUrl, Cmd.none)
 
 isValid : Model -> Bool
 isValid model = 
