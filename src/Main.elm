@@ -4,6 +4,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onInput)
 import Browser
+import Browser.Navigation as Nav
 import Maybe.Extra exposing (isNothing)
 import FormatNumber exposing (format)
 import FormatNumber.Locales exposing (usLocale)
@@ -13,11 +14,13 @@ import Dict exposing (Dict)
 import Markdown
 
 main =
-  Browser.element
+  Browser.application
   { init = initModel
   , view = view
   , update = update
   , subscriptions = subscriptions
+  , onUrlRequest = LinkClicked
+  , onUrlChange = UrlChanged
   }
 
 
@@ -103,9 +106,13 @@ type alias Model =
   , warpAdjust : CheckedField
   , lengthAdjust : CheckedField
   , initUrl : Url.Url
+  , key : Nav.Key
   }
 
-globalDefaultModel = 
+emptyUrl = Url.Url Url.Https "" Nothing "/" Nothing Nothing
+
+globalDefaultModel : Nav.Key -> Model
+globalDefaultModel navkey = 
   Model
     ""                                                  -- Project name
     False                                               -- Metric?
@@ -124,7 +131,8 @@ globalDefaultModel =
     (CheckedField 10 "10" Nothing positive)             -- ppi
     (CheckedField  0  "0" Nothing isInteger)            -- Warp ends adjust
     (CheckedField  0  "0" Nothing notNegative)          -- Warp length adjust
-    (Url.Url Url.Https "" Nothing "/" Nothing Nothing)  -- URL
+    emptyUrl                                            -- URL
+    navkey                                              -- Navigation key
 
 
 type alias ParamDict = Dict String (Maybe String)
@@ -177,12 +185,9 @@ getQueryBool field qd =
       Just s -> List.member s ["true", "1"]
 
 
-processUrl : Model -> String -> Model
-processUrl defaults initUrl = 
+processUrl : Model -> Url.Url -> Model
+processUrl defaults url = 
   let
-    murl = Url.fromString initUrl
-    defUrl = Url.Url Url.Https "" Nothing "/" Nothing Nothing
-    url = Maybe.withDefault defUrl murl
     qd = case url.query of
       Nothing -> Dict.empty
       Just q -> parseParams q
@@ -190,32 +195,39 @@ processUrl defaults initUrl =
             <| Url.percentDecode 
             <| Maybe.withDefault "" (getQueryPart "project" qd)
   in
-    if String.isEmpty initUrl
-    then defaults
-    else
-      { project           = name
-      , metric            = getQueryBool "metric" qd
-      , length            = initField defaults.length (getQueryPart "length" qd) positive
-      , count             = initField defaults.count (getQueryPart "count" qd) positive
-      , fringeLength      = initField defaults.fringeLength (getQueryPart "fringe" qd) notNegative
-      , samplingLength    = initField defaults.samplingLength (getQueryPart "sample" qd) notNegative
-      , loomWaste         = initField defaults.loomWaste (getQueryPart "waste" qd) notNegative
-      , lengthTakeup      = initField defaults.lengthTakeup (getQueryPart "ltakeup" qd) notNegative
-      , lengthShrinkage   = initField defaults.lengthShrinkage (getQueryPart "lshrink" qd) notNegative
-      , width             = initField defaults.width (getQueryPart "width" qd) positive
-      , widthTakeup       = initField defaults.widthTakeup (getQueryPart "wtakeup" qd) notNegative
-      , widthShrinkage    = initField defaults.widthShrinkage (getQueryPart "wshrink" qd) notNegative
-      , warpSett          = initField defaults.warpSett (getQueryPart "sett" qd) positive
-      , floatingSelvedge  = getQueryBool "floating" qd
-      , ppi               = initField defaults.ppi (getQueryPart "ppi" qd) positive
-      , warpAdjust        = initField defaults.warpAdjust (getQueryPart "adjust" qd) isInteger
-      , lengthAdjust      = initField defaults.lengthAdjust (getQueryPart "warpAdjust" qd) notNegative
-      , initUrl           = url
-      } 
+    case url.query of
+      Nothing -> {defaults | initUrl = url}
+      Just "" -> {defaults | initUrl = url}
+      _ ->
+        { project           = name
+        , metric            = getQueryBool "metric" qd
+        , length            = initField defaults.length (getQueryPart "length" qd) positive
+        , count             = initField defaults.count (getQueryPart "count" qd) positive
+        , fringeLength      = initField defaults.fringeLength (getQueryPart "fringe" qd) notNegative
+        , samplingLength    = initField defaults.samplingLength (getQueryPart "sample" qd) notNegative
+        , loomWaste         = initField defaults.loomWaste (getQueryPart "waste" qd) notNegative
+        , lengthTakeup      = initField defaults.lengthTakeup (getQueryPart "ltakeup" qd) notNegative
+        , lengthShrinkage   = initField defaults.lengthShrinkage (getQueryPart "lshrink" qd) notNegative
+        , width             = initField defaults.width (getQueryPart "width" qd) positive
+        , widthTakeup       = initField defaults.widthTakeup (getQueryPart "wtakeup" qd) notNegative
+        , widthShrinkage    = initField defaults.widthShrinkage (getQueryPart "wshrink" qd) notNegative
+        , warpSett          = initField defaults.warpSett (getQueryPart "sett" qd) positive
+        , floatingSelvedge  = getQueryBool "floating" qd
+        , ppi               = initField defaults.ppi (getQueryPart "ppi" qd) positive
+        , warpAdjust        = initField defaults.warpAdjust (getQueryPart "adjust" qd) isInteger
+        , lengthAdjust      = initField defaults.lengthAdjust (getQueryPart "warpAdjust" qd) notNegative
+        , initUrl           = url
+        , key               = defaults.key
+        } 
 
-initModel : String -> (Model, Cmd Msg)
-initModel initUrl = 
-  (processUrl globalDefaultModel initUrl, Cmd.none)
+initModel : String -> Url.Url -> Nav.Key -> (Model, Cmd Msg)
+initModel localDefaults initUrl navkey = 
+  let
+    mUrl = Url.fromString localDefaults
+    localUrl = Maybe.withDefault emptyUrl mUrl
+    localDefaultModel = processUrl (globalDefaultModel navkey) localUrl
+  in
+    (processUrl localDefaultModel initUrl, Cmd.none)
 
 isValid : Model -> Bool
 isValid model = 
@@ -255,28 +267,43 @@ type Msg
   | LengthAdjustChange String
   | UnitsChange Bool
   | ProjectChange String
+  | UrlChanged Url.Url
+  | LinkClicked Browser.UrlRequest
 
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
-  case msg of
-    LengthChange l -> ({model | length = updateField model.length l}, Cmd.none)
-    CountChange c -> ({model | count = updateField model.count c}, Cmd.none)
-    FringeChange l -> ({model | fringeLength = updateField model.fringeLength l}, Cmd.none)
-    SamplingChange l -> ({model | samplingLength = updateField model.samplingLength l}, Cmd.none)
-    WasteChange l -> ({model | loomWaste = updateField model.loomWaste l}, Cmd.none)
-    LTakeupChange l -> ({model | lengthTakeup = updateField model.lengthTakeup l}, Cmd.none)
-    LShrinkChange l -> ({model | lengthShrinkage = updateField model.lengthShrinkage l}, Cmd.none)
-    WidthChange w -> ({model | width = updateField model.width w}, Cmd.none)
-    WTakeupChange w -> ({model | widthTakeup = updateField model.widthTakeup w}, Cmd.none)
-    WShrinkChange w -> ({model | widthShrinkage = updateField model.widthShrinkage w}, Cmd.none)
-    SettChange s -> ({model | warpSett = updateField model.warpSett s}, Cmd.none)
-    FloatingSelvedgeChange f -> ({model | floatingSelvedge = f}, Cmd.none)
-    PPIChange p -> ({model | ppi = updateField model.ppi p}, Cmd.none)
-    WarpAdjustChange w -> ({model | warpAdjust = updateField model.warpAdjust w}, Cmd.none)
-    LengthAdjustChange l -> ({model | lengthAdjust = updateField model.lengthAdjust l}, Cmd.none)
-    UnitsChange m -> ({model | metric = m}, Cmd.none)
-    ProjectChange n -> ({model | project = n}, Cmd.none)
+  let
+    newModel =
+      case msg of
+        LengthChange l -> {model | length = updateField model.length l}
+        CountChange c -> {model | count = updateField model.count c}
+        FringeChange l -> {model | fringeLength = updateField model.fringeLength l}
+        SamplingChange l -> {model | samplingLength = updateField model.samplingLength l}
+        WasteChange l -> {model | loomWaste = updateField model.loomWaste l}
+        LTakeupChange l -> {model | lengthTakeup = updateField model.lengthTakeup l}
+        LShrinkChange l -> {model | lengthShrinkage = updateField model.lengthShrinkage l}
+        WidthChange w -> {model | width = updateField model.width w}
+        WTakeupChange w -> {model | widthTakeup = updateField model.widthTakeup w}
+        WShrinkChange w -> {model | widthShrinkage = updateField model.widthShrinkage w}
+        SettChange s -> {model | warpSett = updateField model.warpSett s}
+        FloatingSelvedgeChange f -> {model | floatingSelvedge = f}
+        PPIChange p -> {model | ppi = updateField model.ppi p}
+        WarpAdjustChange w -> {model | warpAdjust = updateField model.warpAdjust w}
+        LengthAdjustChange l -> {model | lengthAdjust = updateField model.lengthAdjust l}
+        UnitsChange m -> {model | metric = m}
+        ProjectChange n -> {model | project = n}
+        _ -> model
+    newCmd = 
+      case msg of
+        UrlChanged _ -> Cmd.none
+        LinkClicked req ->
+          case req of
+            Browser.Internal _ -> Cmd.none
+            Browser.External href -> Nav.load href
+        _ -> Nav.replaceUrl newModel.key <| Url.toString <| makeQuery newModel
+  in
+    (newModel, newCmd)
 
 
 -- VIEW
@@ -531,7 +558,7 @@ viewSymbol desc symbol =
   , sup [] [text symbol]
   ]
 
-view : Model -> Html Msg
+view : Model -> Browser.Document Msg
 view model =
   let
     smallunit = if model.metric then " cm" else " \""
@@ -539,8 +566,8 @@ view model =
     picksunit = if model.metric then " ppcm" else " ppi"
     picktext = if model.metric then "Picks per cm:" else "Picks per inch:"
   in
-    div []
-    [ h1 [] [ text "Warp & Weft Calculator" ]
+    Browser.Document "Athena Warp & Weft Calculator"
+    [ h1 [] [ text "Athena Warp & Weft Calculator" ]
     , text "This calculation can be inserted into a Ravelry post or project "
     , text "note. The 'Copy results to Clipboard' button below puts your "
     , text "calculation onto the clipboard formatted for Ravelry or for any "
