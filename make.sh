@@ -39,22 +39,4 @@ gzip -9 <build/main-min.js >build/main.js.gz
 
 echo "Done!"
 
-# rm -rf distribution
-
-# appdir=distribution/elk-herd
-# mkdir -p "$appdir"
-# cp -rp assets "$appdir"
-# rm "$appdir/assets/"*.js    # already incorporated into the main.js file
-# cp -p build/main-min.js "$appdir/assets/main.js"
-# cp -p index.html "$appdir"
-
-# (cd distribution; \
-#  tar cvzf elk-herd-live.tgz elk-herd \
-# )
-
-# wget -E -H -k -K -nd -N -p -P thepageslug \
-#      http://www.thepage.to/save/four/posterity.html
-#
-# see: https://gist.github.com/dannguyen/03a10e850656577cfb57
-
 
