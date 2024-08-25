@@ -81,7 +81,7 @@ input[type=checkbox].toggle-switch:checked::after {
   <script type="text/javascript" src="build/main.js.gz" ></script>
   <script type="text/javascript">
     var app = Elm.Main.init({ flags: "http://example.com/main.html?metric=false", node: document.querySelector('main') })
-    var clipboard = new Clipboard('.copy-button')
+    var clipboard = new ClipboardJS('.copy-button')
     // you can use ports and stuff here
   </script>
 <p>
